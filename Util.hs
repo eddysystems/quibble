@@ -20,15 +20,13 @@ module Util
   , (<<), (.<), (=.<), (.=<)
   , foldM1
   , zipWith3M
+  -- * Misc
+  , fst3, snd3, thd3
+  , trimWhile
   ) where
 
 import System.IO
 import System.Exit
-import Data.Function
-import Data.List
-import Data.Map (Map)
-import qualified Data.Map as Map
-import Control.Exception
 import Control.Monad
 import Debug.Trace
 import Foreign.C.String
@@ -58,6 +56,10 @@ uncurry3 f (a,b,c) = f a b c
 
 zipWith3M :: Monad m => (a -> b -> c -> m d) -> [a] -> [b] -> [c] -> m [d]
 zipWith3M f x y z = mapM (uncurry3 f) (zip3 x y z)
+
+fst3 (x,_,_) = x
+snd3 (_,x,_) = x
+thd3 (_,_,x) = x
 
 -- more efficient than Arrow instances:
 first :: (a -> c) -> (a,b) -> (c,b)
@@ -102,3 +104,6 @@ nop = return ()
 foldM1 :: Monad m => (a -> a -> m a) -> [a] -> m a
 foldM1 f (h:t) = foldM f h t
 foldM1 _ [] = error "foldM1 applied to an empty list"
+
+trimWhile :: (a -> Bool) -> [a] -> [a]
+trimWhile f = dropWhile f . reverse . dropWhile f . reverse
