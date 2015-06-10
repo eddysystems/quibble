@@ -21,3 +21,7 @@ th sample.lua checkpoint-file -temperature 0.6 -gpuid -1 > output.js
 ```
 
 The temperature can usefully be between 0 and 1. If the checkpoint file has been computed on a GPU, it has to be sampled on a GPU (`-gpuid` >= 0). Pass in a seed with `-primetext "..."`. 
+
+## Training
+
+Use the instructions for [char-rnn](https://github.com/karpathy/char-rnn) for training, except: You can restart training from a checkpoint using `-checkpoint`.
