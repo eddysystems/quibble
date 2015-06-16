@@ -140,7 +140,6 @@ function process()
     buf:readInt(4) -- Skip 16 bytes (two longs)
     cmd = torch.FloatTensor(buf:readFloat(1+stateSize))
     local char = string.char(cmd[1])
-    io.stderr:write('blah = ',cmd:nElement())
     local state = unflatten(current_state,cmd[{{2,1+stateSize}}])
 
     -- Advance RNN
