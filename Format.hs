@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 -- | Neural network reformatting
 
 module Format
@@ -5,47 +6,50 @@ module Format
   ) where
 
 import Regular
+import RNN
 import Search
 import Util
 import Data.Char
+import Data.Text (Text)
+import qualified Data.Text as T
 import Data.List
 import Data.Ord
+import Debug.Trace
 import Language.JavaScript.Parser
 
-data RNN a = RNN { step :: Maybe a -> (Score,RNN a) }
-
-format :: String -> JSNode -> String
-format src js = best  where
+format :: RNN -> Text -> JSNode -> Text
+format nn src js = best  where
   best = snd $ minimumBy (comparing fst) results
 
-  results :: [(Score,String)]
-  results = take 1000 $ beamSearch 16 $ map (score nn) (expand $ regular js)
+  results :: [(Score,Text)]
+  results = map (second T.pack) $ take 1000 $ beamSearch 4 $ score nn' (expand $ traceShowId $ regular js)
+  
+  -- Prime with src
+  nn' = T.foldl step nn (T.append src "\n\n")
 
-  -- TODO
-  s = 1.7
-  _ = src
-  nn = RNN $ \_ -> (s,nn)
-
-score :: RNN a -> NTree a -> Tree Score a
-score _ NLeaf = Leaf -- TODO: step EOF
-score nn (NNode x es) = Node x $ map f es where
-  f t = second (flip score t) (step nn $ label t)
+score :: RNN -> Tree (Char,Int) -> Tree (Score,Char,Int)
+score nn (Tree h es) = Tree h (map f es) where
+  f ((x,n),t) = ((-log (prob0 nn x),x,n), score (step nn x) t)
 
 -- Expand a regular expression into a (possibly infinite) lazy trie
-expand :: Reg -> [NTree Char]
-expand r = expand' r [NLeaf]
+-- (c,n) means character c and src advancement of n
+expand :: Reg -> Tree (Char,Int)
+expand r = expand' r (Tree True [])
 
 -- expand' r t is expand r followed by t
-expand' :: Reg -> [NTree Char] -> [NTree Char]
+expand' :: Reg -> Tree (Char,Int) -> Tree (Char,Int)
 expand' REmpty r = r
-expand' (RSingle c) r = [NNode c r]
+expand' (RSingle c) r = Tree False [((c,1),r)]
 -- TODO: Missing byte order mark (http://www.ecma-international.org/ecma-262/5.1/#sec-7.2)
-expand' RSpace r   = map (flip NNode r) " \t\v\f\xa0\n\r" -- Newlines legal!
+expand' RSpace r = Tree False $ map (\c -> ((c,0),r)) " \t\v\f\xa0\n\r" -- Newlines legal!
 -- TODO: Missing line separator and paragraph separator (http://www.ecma-international.org/ecma-262/5.1/#sec-7.3)
-expand' RNewline r = map (flip NNode r) "\n\r"
+expand' RNewline r = Tree False $ map (\c -> ((c,1),r)) "\n\r"
 expand' (RCat x y) r = expand' x $ expand' y r
-expand' (RStar x) r = ys where ys = r ++ expand' x ys
-expand' (RMaybe x) r = r ++ expand' x r
+expand' (RStar x) r = ys where ys = unionTree r (expand' x ys)
+expand' (RMaybe x) r = unionTree r (expand' x r)
+
+unionTree :: Tree a -> Tree a -> Tree a
+unionTree (Tree h ts) (Tree h' ts') = Tree (h || h') (ts ++ ts')
 
 -- Represent all possible reformattings of some Javascript as a regular expression
 regular :: JSNode -> Reg
@@ -53,14 +57,16 @@ regular js = regs $ tokens js []
 
 regs :: [Tok] -> Reg
 regs = trail . sep . smash . strip where
-  strip = trimWhile isWhite where
+  strip = trimWhile isWhite . filter good where
     isWhite (White _) = True
     isWhite (Black _) = False
+    good (Black "") = False
+    good _ = True
 
   smash :: [Tok] -> [Tok]
   smash [] = []
   smash (White x : xs) = case smash xs of
-    White y : z -> White (x ++ y) : z
+    White y : z -> White (T.append x y) : z
     z -> z
   smash (Black x : xs) = Black x : smash xs
 
@@ -69,7 +75,7 @@ regs = trail . sep . smash . strip where
   line = RCat RNewline white0
 
   trail :: Reg -> Reg
-  trail x = RCat white0 $ RCat x $ white0
+  trail x = foldr1 RCat [white0,x,white0,RSingle eof]
 
   sep :: [Tok] -> Reg
   sep [] = REmpty
@@ -82,22 +88,24 @@ regs = trail . sep . smash . strip where
 
   -- Can these tokens be juxtaposed with no whitespace?
   -- TODO: Doesn't handle general unicode
-  safe :: String -> String -> Bool
-  safe x y = not (isAlphaNum (last x) && isAlphaNum (head y))
+  safe :: Text -> Text -> Bool
+  safe x y | T.null x || T.null y  = error $ "bad x "++show x++", y "++show y
+  safe x y = not (isAlphaNum (T.last x) && isAlphaNum (T.head y))
 
   isLine c = c == '\n' || c == '\r'
 
-  white :: Bool -> String -> Reg
-  white _ s | any isLine s = line
+  white :: Bool -> Text -> Reg
+  white _ s | T.any isLine s = line
   white True _ = white0
   white False _ = white1
 
-  reg :: String -> Reg
-  reg = foldr1 RCat . map RSingle
+  reg :: Text -> Reg
+  reg s | T.null s = REmpty
+  reg s = foldr1 RCat (map RSingle $ T.unpack s)
 
 data Tok
-  = Black String
-  | White String
+  = Black !Text
+  | White !Text
 
 -- For showsPrec trick
 type Toks = [Tok] -> [Tok]
@@ -114,14 +122,14 @@ instance Tokens JSNode where
   tokens (NN t) = tokens t
 
 instance Tokens CommentAnnotation where
-  tokens (CommentA _ s) = (Black s :)
-  tokens (WhiteSpace _ s) = (White s :)
+  tokens (CommentA _ s) = (Black (T.pack s) :)
+  tokens (WhiteSpace _ s) = (White (T.pack s) :)
   tokens NoComment = id
 
 instance Tokens Node where
   tokens = t where
     b :: String -> Toks
-    b x r = Black x : r
+    b x r = Black (T.pack x) : r
 
     ts = tokens
 

@@ -16,16 +16,36 @@ build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
 
+Flag profile
+  description: Profiling
+  default:     False
+
 executable quibble
   main-is:             Main.hs
   other-modules:
     Util
+    Native
     Regular
     Format
   -- other-extensions:
   build-depends:       base >=4.8 && <4.9, containers, mtl,
+                       binary,
+                       bytestring,
+                       data-binary-ieee754,
+                       deepseq,
+                       directory,
+                       filepath,
+                       heap,
                        language-javascript,
-                       options
+                       options,
+                       process,
+                       text,
+                       text-show,
+                       time,
+                       vector,
+                       vector-binary-instances
   -- hs-source-dirs:
   default-language:    Haskell2010
   ghc-options: -Wall -Werror -fwarn-tabs -fno-warn-missing-signatures -fno-warn-name-shadowing -fno-warn-orphans
+  if flag(profile)
+    ghc-options: -fprof-auto

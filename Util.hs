@@ -8,8 +8,6 @@ module Util
   , die
   , fputs
   , puts
-  , debug
-  , debugVal
   -- * Functionals
   , (...), uncurry3
   , first, second
@@ -28,7 +26,6 @@ module Util
 import System.IO
 import System.Exit
 import Control.Monad
-import Debug.Trace
 import Foreign.C.String
 
 -- |Write a string to a stream all at once.
@@ -41,12 +38,6 @@ fputs h s = withCStringLen s (uncurry $ hPutBuf h)
 -- |Write a string to stdout with a trailing newline.
 puts :: String -> IO ()
 puts s = fputs stdout (s++"\n")
-
-debug :: Show a => a -> b -> b
-debug = traceShow
-
-debugVal :: Show a => a -> a
-debugVal a = debug a a
 
 (...) :: (c -> d) -> (a -> b -> c) -> a -> b -> d
 (...) f g x y = f (g x y)
