@@ -21,8 +21,13 @@ module Util
   -- * Misc
   , fst3, snd3, thd3
   , trimWhile
+  -- * Timing
+  , time
+  , timeseq
   ) where
 
+import Control.DeepSeq
+import Data.Time.Clock
 import System.IO
 import System.Exit
 import Control.Monad
@@ -98,3 +103,14 @@ foldM1 _ [] = error "foldM1 applied to an empty list"
 
 trimWhile :: (a -> Bool) -> [a] -> [a]
 trimWhile f = dropWhile f . reverse . dropWhile f . reverse
+
+time :: String -> IO a -> IO a
+time name io = do
+  t0 <- getCurrentTime
+  x <- io
+  t1 <- getCurrentTime
+  putStrLn $ name ++ " = " ++ show (diffUTCTime t1 t0)
+  return x
+
+timeseq :: NFData a => String -> a -> IO a
+timeseq name x = time name $ deepseq x (return x)

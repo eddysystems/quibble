@@ -16,16 +16,12 @@ import qualified Native as N
 import Util
 import Control.Monad
 import Data.Char
-import Data.Time.Clock
 import Data.Word
 import Debug.Trace
 import System.IO
 import System.Process
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Text (Text)
-import qualified Data.Text as T
-import qualified Data.Text.IO as TI
 import Data.Vector.Unboxed (Vector,(!))
 import qualified Data.Vector.Unboxed as V
 import Data.Vector.Binary ()
@@ -57,20 +53,6 @@ load checkpoint gpuid = do
              , rState = state
              , rSoftmax = softmax }
 
-time :: Text -> IO a -> IO a
---time _ = id
-time name io = do
-  t0 <- getCurrentTime
-  x <- io
-  t1 <- getCurrentTime
-  TI.putStrLn $ T.unwords [name,"=",T.pack $ P.show (diffUTCTime t1 t0)]
-  return x
-{-
--}
-
---timeseq :: NFData a => Text -> a -> IO a
---timeseq name x = time name $ deepseq x (return x)
-
 -- softmax :: [Float] -> [Float]
 -- softmax xs = traceShow (xs,map (/ sum es) es) $ map (/ sum es) es where
 --   es = map exp xs
@@ -88,10 +70,10 @@ prob0 nn x = case Map.lookup x (rVocab nn) of
 step :: RNN -> Char -> RNN
 step nn x = case Map.lookup x (rVocab nn) of
   Nothing -> error $ "step: weird character '" ++ showLitChar x "'"
-  Just _ -> unsafePerformIO $ time "step" $ do
-    time "write" $ N.save (rIn nn) $ V.cons (fromIntegral $ ord x) (rState nn)
+  Just _ -> unsafePerformIO $ {- time "step" $ -} do
+    N.save (rIn nn) $ V.cons (fromIntegral $ ord x) (rState nn)
     hFlush (rIn nn)
-    (state,softmax) <- time "nn slurp" $ N.load (rOut nn)
+    (state,softmax) <- N.load (rOut nn)
     return nn { rState = state, rSoftmax = softmax }
 
 eof :: Char

@@ -83,7 +83,6 @@ function write_state(state)
   local buf = torch.MemoryFile('w')
   buf:binary()
   local n = 2*8+4*(state:nElement()+probs:nElement())
-  io.stderr:write('state blob = ',n,'\n')
   writeActualLong(buf,n)
   writeActualLong(buf,state:nElement())
   buf:writeFloat(state:storage())
@@ -113,7 +112,6 @@ function preamble()
     table.insert(vocab_indices,i)
   end
   local n = 2*(8+#vocab_chars)
-  io.stderr:write('preamble blob = ',n,'\n')
   writeActualLong(buf,n)
   writeActualLong(buf,#vocab_chars)
   buf:writeByte(torch.ByteStorage(vocab_chars))
@@ -133,9 +131,12 @@ function process()
   -- Accept next,state pairs and compute new states
   while true do
     -- Process a command
-    local cmd = io.read(16+4*(1+stateSize)) .. '\0'
-    local start = sys.clock()
-    buf = torch.MemoryFile(torch.CharStorage():string(cmd),'r')
+    local cmd = io.read(16+4*(1+stateSize))
+    if not cmd then
+      return
+    end
+    --local start = sys.clock()
+    buf = torch.MemoryFile(torch.CharStorage():string(cmd..'\0'),'r')
     buf:binary()
     buf:readInt(4) -- Skip 16 bytes (two longs)
     cmd = torch.FloatTensor(buf:readFloat(1+stateSize))
@@ -150,8 +151,8 @@ function process()
 
     -- Write new state
     write_state(state)
-    local stop = sys.clock()
-    io.stderr:write('cycle = ' .. (stop - start) .. ', nn ' .. (mid1 - mid0) .. '\n')
+    --local stop = sys.clock()
+    --io.stderr:write('cycle = ' .. (stop - start) .. ', nn ' .. (mid1 - mid0) .. '\n')
     io.flush()
   end
 end

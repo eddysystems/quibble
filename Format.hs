@@ -36,14 +36,19 @@ score nn (Tree h es) = Tree h (map f es) where
 expand :: Reg -> Tree (Char,Int)
 expand r = expand' r (Tree True [])
 
+-- Types of whitespace
+spaces = " \t" ++ newlines -- TODO: ++ "\v\f\xa0"
+newlines = "\n\r"
+isLine c = c == '\n' || c == '\r'
+
 -- expand' r t is expand r followed by t
 expand' :: Reg -> Tree (Char,Int) -> Tree (Char,Int)
 expand' REmpty r = r
 expand' (RSingle c) r = Tree False [((c,1),r)]
 -- TODO: Missing byte order mark (http://www.ecma-international.org/ecma-262/5.1/#sec-7.2)
-expand' RSpace r = Tree False $ map (\c -> ((c,0),r)) " \t\v\f\xa0\n\r" -- Newlines legal!
+expand' RSpace r = Tree False $ map (\c -> ((c,0),r)) spaces
 -- TODO: Missing line separator and paragraph separator (http://www.ecma-international.org/ecma-262/5.1/#sec-7.3)
-expand' RNewline r = Tree False $ map (\c -> ((c,1),r)) "\n\r"
+expand' RNewline r = Tree False $ map (\c -> ((c,1),r)) newlines
 expand' (RCat x y) r = expand' x $ expand' y r
 expand' (RStar x) r = ys where ys = unionTree r (expand' x ys)
 expand' (RMaybe x) r = unionTree r (expand' x r)
@@ -67,7 +72,7 @@ regs = trail . sep . smash . strip where
   smash [] = []
   smash (White x : xs) = case smash xs of
     White y : z -> White (T.append x y) : z
-    z -> z
+    z -> White x : z
   smash (Black x : xs) = Black x : smash xs
 
   white0 = RStar RSpace
@@ -92,8 +97,6 @@ regs = trail . sep . smash . strip where
   safe x y | T.null x || T.null y  = error $ "bad x "++show x++", y "++show y
   safe x y = not (isAlphaNum (T.last x) && isAlphaNum (T.head y))
 
-  isLine c = c == '\n' || c == '\r'
-
   white :: Bool -> Text -> Reg
   white _ s | T.any isLine s = line
   white True _ = white0
@@ -106,6 +109,7 @@ regs = trail . sep . smash . strip where
 data Tok
   = Black !Text
   | White !Text
+  deriving Show
 
 -- For showsPrec trick
 type Toks = [Tok] -> [Tok]
@@ -118,7 +122,7 @@ instance Tokens a => Tokens [a] where
   tokens (x : xs) r = tokens x $ tokens xs r
 
 instance Tokens JSNode where
-  tokens (NT t _ cs) = tokens t . tokens cs
+  tokens (NT t _ cs) = tokens cs . tokens t
   tokens (NN t) = tokens t
 
 instance Tokens CommentAnnotation where
