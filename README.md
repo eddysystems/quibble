@@ -14,20 +14,24 @@ Make sure to install torch following the instructions from [torch.ch](http://tor
 
 3. For the Haskell side, do
 
-       # Put quibble in the same directory as char-rnn
-       git clone git@github.com:eddysystems/quibble.git
+        # Put quibble in the same directory as char-rnn
+        git clone git@github.com:eddysystems/quibble.git
 
-       # Run one of
-       sudo apt-get install ghc cabal-install
-       brew install ghc cabal-install
+        # Run one of
+        sudo apt-get install ghc cabal-install
+        brew install ghc cabal-install
 
-       # Build quibble
-       cd quibble
-       cabal update
-       cabal install happy alex
-       cabal install --only-dependencies
-       cabal configure
-       cabal build
+        # Build quibble
+        cd quibble
+        cabal update
+        cabal install happy alex
+        cabal install --only-dependencies
+        cabal configure
+        cabal build
+
+        # Run
+        ln -s dist/build/quibble/quibble
+        ./quibble -m <model> <javascript>
 
 ## Sampling a checkpoint file
 

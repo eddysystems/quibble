@@ -13,7 +13,6 @@ require 'lfs'
 require 'sys'
 
 require 'util.OneHot'
-require 'util.misc'
 
 cmd = torch.CmdLine()
 cmd:text()
@@ -69,6 +68,57 @@ local seed_text = opt.primetext
 local prev_char
 
 protos.rnn:evaluate() -- put in eval mode so that dropout works properly
+
+-- Flatten and concatenate a sequence of tensors
+function flatten(xs)
+  if type(xs) ~= 'table' then
+    xs = {xs}
+  end
+  assert(#xs >= 1)
+  local f
+  local total = 0
+  for _,x in pairs(xs) do
+    if total == 0 then
+      f = x:float():clone()
+    end
+    total = total + x:nElement()
+  end
+  f:resize(total)
+  local offset = 0
+  for _,x in pairs(xs) do
+    local xn = x:nElement()
+    f[{{offset+1,offset+xn}}] = x:view(xn):float()
+    offset = offset + xn
+  end
+  return f
+end
+
+-- The reverse of flatten
+function unflatten(template,f)
+  local total = 0
+  for _,t in pairs(template) do
+    total = total + t:nElement()
+  end
+  assert(total == f:nElement())
+  local xs = {}
+  local offset = 0
+  for _,t in pairs(template) do
+    local tn = t:nElement()
+    local x = f[{{offset+1,offset+tn}}]:resize(t:size())
+    if type(t) == 'userdata' then
+      require 'cutorch'
+      x = x:cuda()
+    end
+    table.insert(xs,x)
+    offset = offset + tn
+  end
+  return xs
+end
+
+function tensor_str(x)
+  assert(x:nDimension() == 1)
+  return table.concat(torch.totable(x),' ')
+end
 
 -- Test flattening and unflattening
 local flat = flatten(current_state)
