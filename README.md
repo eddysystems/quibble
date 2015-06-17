@@ -12,6 +12,23 @@ Make sure to install torch following the instructions from [torch.ch](http://tor
 
 2. Follow the rest of the char-rnn [install instructions](https://github.com/karpathy/char-rnn)
 
+3. For the Haskell side, do
+
+       # Put quibble in the same directory as char-rnn
+       git clone git@github.com:eddysystems/quibble.git
+
+       # Run one of
+       sudo apt-get install ghc cabal-install
+       brew install ghc cabal-install
+
+       # Build quibble
+       cd quibble
+       cabal update
+       cabal install happy alex
+       cabal install --only-dependencies
+       cabal configure
+       cabal build
+
 ## Sampling a checkpoint file
 
 If there is a checkpoint file, run (in the char-rnn directory)

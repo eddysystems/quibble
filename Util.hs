@@ -29,7 +29,7 @@ module Util
 import Control.DeepSeq
 import Data.Time.Clock
 import System.IO
-import System.Exit
+import System.Exit hiding (die)
 import Control.Monad
 import Foreign.C.String
 
@@ -43,6 +43,12 @@ fputs h s = withCStringLen s (uncurry $ hPutBuf h)
 -- |Write a string to stdout with a trailing newline.
 puts :: String -> IO ()
 puts s = fputs stdout (s++"\n")
+
+-- |Print a string on stderr and exit with the given value
+die :: String -> IO ()
+die s = do
+  fputs stderr (s++"\n")
+  exit 1
 
 (...) :: (c -> d) -> (a -> b -> c) -> a -> b -> d
 (...) f g x y = f (g x y)
